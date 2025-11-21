@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>機車軔機 (v18.7 手機版)</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --panel-bg: #252525;
+            --text-main: #e0e0e0;
+            
+            /* 標準色碼 */
+            --c-mr: #f1c40f;  /* 黃: MR */
+            --c-bp: #2ecc71;  /* 綠: BP */
+            --c-bc: #e74c3c;  /* 紅: BC */
+            --c-er: #ecf0f1;  /* 白: ER */
+            --c-cr: #3498db;  /* 藍: CR */
+            --c-ar: #e67e22;  /* 橘: AR */
+            --c-16: #9b59b6;  /* 紫: 16號管 */
+            --c-20: #ff79c6;  /* 粉: 單閥 */
+            --c-psi: #ffcc00; /* 金: PSI */
+            --c-blue: #00a8ff; /* 藍: 指示箭頭 */
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { 
+            margin: 0; padding: 0; 
+            background-color: var(--bg-color); 
+            color: var(--text-main); 
+            font-family: "Microsoft JhengHei", monospace; 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+            user-select: none; 
+        }
+        
+        /* Header */
+        header { 
+            padding: 8px 12px; 
+            background: #111; 
+            border-bottom: 2px solid #444; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            flex-shrink: 0; 
+        }
+        h1 { margin: 0; font-size: 18px; color: var(--c-mr); letter-spacing: 1px; }
+        
+        .comp-light { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: bold; color: #555; border: 1px solid #444; padding: 2px 6px; border-radius: 12px; background: #222; }
+        .comp-light.on { color: #2ecc71; border-color: #2ecc71; box-shadow: 0 0 5px #2ecc71; }
+        .comp-dot { width: 8px; height: 8px; border-radius: 50%; background: #444; transition: 0.2s; }
+        .comp-light.on .comp-dot { background: #2ecc71; box-shadow: 0 0 5px #2ecc71; }
+
+        /* Main Layout: Column for Mobile */
+        .container { 
+            display: flex; 
+            flex-direction: column; /* 手機版預設垂直排列 */
+            flex: 1; 
+            height: 100%; 
+            overflow-y: auto; /* 允許垂直捲動 */
+        }
+
+        /* 駕駛台 (Controls & Gauges) */
+        .cab-panel { 
+            flex: 0 0 auto; /* 不伸縮，依內容高度 */
+            background: var(--panel-bg); 
+            border-bottom: 2px solid #000; 
+            padding: 10px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 10px; 
+            z-index: 10; 
+        }
+        
+        .gauge-panel { 
+            background: #000; 
+            padding: 8px; 
+            border-radius: 8px; 
+            border: 2px solid #555; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 5px; 
+        }
+        .gauge-group { display: flex; justify-content: space-around; gap: 10px; }
+        .gauge-wrap { text-align: center; position: relative; width: 100px; } /* 手機版縮小儀表寬度 */
+        .gauge { 
+            width: 100px; height: 100px; 
+            background: radial-gradient(#2a2a2a 60%, #000 70%); 
+            border-radius: 50%; border: 3px solid #888; 
+            position: relative; margin: 0 auto; 
+            box-shadow: inset 2px 2px 5px #000; 
+        }
+        .ticks { 
+            position: absolute; inset: 0; border-radius: 50%; 
+            background: repeating-conic-gradient(from -135deg, rgba(255,255,255,0.8) 0deg 1deg, transparent 1deg 27deg), repeating-conic-gradient(from -135deg, rgba(255,255,255,0.3) 0deg 0.5deg, transparent 0.5deg 5.4deg); 
+            mask: radial-gradient(transparent 60%, black 61%); 
+            -webkit-mask: radial-gradient(transparent 60%, black 61%); 
+        }
+        .gauge-num { position: absolute; font-size: 9px; color: #fff; font-weight: bold; width: 100%; height: 100%; top: 0; left: 0; pointer-events: none; }
+        .gn-0 { position:absolute; bottom: 15%; left: 20%; } .gn-5 { position:absolute; top: 10%; left: 50%; transform: translateX(-50%); } .gn-10 { position:absolute; bottom: 15%; right: 20%; }
+        .needle { position: absolute; left: 50%; bottom: 50%; width: 2px; height: 42px; transform-origin: bottom center; transform: rotate(-135deg); transition: transform 0.1s linear; z-index: 10; border-radius: 2px; box-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+        
+        .n-red { background: var(--c-bc); z-index: 12; height: 44px; width: 2px; }
+        .n-white { background: #fff; z-index: 11; width: 2px; }
+        .n-green { background: var(--c-bp); z-index: 11; width: 2px; } 
+        .n-yellow { background: var(--c-mr); z-index: 11; width: 2px; height: 44px;}
+        
+        .gauge-val-box { display: flex; justify-content: space-between; background: #222; padding: 2px 4px; border-radius: 4px; margin-top: 4px; border: 1px solid #444; }
+        .gv-item { text-align: center; flex: 1; }
+        .gv-label { font-size: 9px; color: #aaa; display: block; }
+        .gv-num { font-family: monospace; font-size: 14px; font-weight: bold; display: block; }
+
+        .drop-display { background: #111; color: var(--c-bp); padding: 6px; text-align: center; border: 1px solid #555; border-radius: 4px; font-size: 15px; font-weight: bold; font-family: monospace;}
+        
+        .bail-btn { 
+            background: linear-gradient(to bottom, #e67e22, #d35400); 
+            color: white; padding: 12px; border: none; border-radius: 6px; 
+            font-weight: bold; cursor: pointer; font-size: 16px; 
+            box-shadow: 0 4px 0 #a04000; transition: 0.1s; 
+            display: flex; flex-direction: column; align-items: center; 
+            touch-action: manipulation; /* 優化觸控 */
+        }
+        .bail-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #a04000; }
+        .bail-desc { font-size: 10px; font-weight: normal; color: #ffeebb; margin-top: 2px; }
+
+        .ctrl-group { display: flex; flex: 1; gap: 8px; min-height: 200px; }
+        .ctrl-col { flex: 1; background: #222; border: 1px solid #444; border-radius: 6px; display: flex; flex-direction: column; align-items: center; padding: 8px 0; }
+        .ctrl-label { width: 100%; text-align: center; border-bottom: 1px solid #444; padding-bottom: 5px; font-weight: bold; font-size: 13px; color: #ccc; }
+        .ctrl-state { height: 20px; color: var(--c-mr); font-size: 12px; font-weight: bold; margin: 5px 0; }
+        .slider-track { flex: 1; position: relative; width: 100%; display: flex; justify-content: center; }
+        .notches { position: absolute; left: 2px; top: 0; height: 100%; display: flex; flex-direction: column; justify-content: space-between; font-size: 9px; color: #777; font-weight: bold; pointer-events: none; }
+        input[type=range] { -webkit-appearance: slider-vertical; width: 40px; height: 100%; cursor: grab; margin-left: 30px; background: transparent; touch-action: none; /* 防止滑動時滾動頁面 */ }
+
+        /* System Diagram */
+        .center-panel { 
+            flex: 1; 
+            background: #151515; 
+            position: relative; 
+            display: flex; 
+            align-items: flex-start; 
+            justify-content: center; 
+            overflow: hidden;
+            min-height: 300px; /* 確保手機上有足夠高度顯示圖 */
+        }
+        svg { width: 100%; height: 100%; max-height: 100%; }
+        text { font-family: "Microsoft JhengHei", monospace; font-weight: bold; user-select: none; pointer-events: none; }
+        
+        /* Box Styles */
+        .box-comp { fill: #2a2a2a; stroke: #777; stroke-width: 2; rx: 6; }
+        .box-dashed { fill: none; stroke: #666; stroke-width: 1; stroke-dasharray: 4; rx: 6; }
+        .box-val { fill: #000; stroke: #555; stroke-width: 1; rx: 6; }
+        
+        .txt-label { fill: #bbb; font-size: 12px; text-anchor: middle; }
+        .txt-title { fill: #eee; font-size: 14px; text-anchor: middle; font-weight: 900; }
+        .txt-val { fill: #fff; font-size: 15px; text-anchor: middle; font-family: monospace; font-weight: bold;}
+        .txt-psi { fill: var(--c-psi); font-size: 11px; text-anchor: middle; font-family: monospace; font-weight: normal;}
+        .txt-unit-in { fill: #666; font-size: 9px; text-anchor: end;}
+        .txt-status { font-size: 10px; text-anchor: middle; }
+        .unit-legend { fill: #888; font-size: 11px; text-anchor: start; }
+
+        path { fill: none; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; opacity: 0.2; transition: stroke-opacity 0.1s; }
+        .flow { stroke-dasharray: 8; animation: flow 0.5s linear infinite; opacity: 1 !important; stroke-width: 5; filter: drop-shadow(0 0 2px currentColor); }
+        @keyframes flow { to { stroke-dashoffset: -16; } }
+
+        /* Wheel Animation - Fixed Origin */
+        #anim-wheel {
+            /* 移除干擾屬性 */
+            /* transform-box: fill-box; */
+            /* 強制設定旋轉軸心為圓心 (圓心座標為 50, 0) */
+            transform-origin: 50px 0px;
+        }
+        
+        .shoe { fill: #666; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .shoe.active { fill: var(--c-bc); }
+        
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { 
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Desktop Enhancement */
+        @media (min-width: 1024px) {
+            .container { flex-direction: row; }
+            .cab-panel { border-right: 2px solid #000; border-bottom: none; height: 100%; }
+            .gauge { width: 120px; height: 120px; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>機車軔機</h1>
+    <div class="comp-light" id="comp-light" style="margin-left: auto;">
+        <div class="comp-dot"></div>
+        <span>空壓機 (7.5-8.5)</span>
+    </div>
+</header>
+
+<div class="container">
+    <!-- 操作區 (手機在上方) -->
+    <div class="cab-panel">
+        <div class="gauge-panel">
+            <div class="gauge-group">
+                <div class="gauge-wrap">
+                    <div class="gauge">
+                        <div class="ticks"></div>
+                        <div class="gauge-num">
+                            <span class="gn-0">0</span><span class="gn-5">5</span><span class="gn-10">10</span>
+                        </div>
+                        <div class="needle n-yellow" id="n-mr"></div>
+                        <div class="needle n-white" id="n-er"></div>
+                    </div>
+                    <div class="gauge-val-box">
+                        <div class="gv-item">
+                            <span class="gv-label">MR</span>
+                            <span class="gv-num" style="color:var(--c-mr)" id="txt-mr">8.5</span>
+                        </div>
+                        <div class="gv-item">
+                            <span class="gv-label">ER</span>
+                            <span class="gv-num" style="color:var(--c-er)" id="txt-er">5.0</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="gauge-wrap">
+                    <div class="gauge">
+                        <div class="ticks"></div>
+                        <div class="gauge-num">
+                            <span class="gn-0">0</span><span class="gn-5">5</span><span class="gn-10">10</span>
+                        </div>
+                        <div class="needle n-green" id="n-bp"></div>
+                        <div class="needle n-red" id="n-bc"></div>
+                    </div>
+                    <div class="gauge-val-box">
+                        <div class="gv-item">
+                            <span class="gv-label">BP</span>
+                            <span class="gv-num" style="color:var(--c-bp)" id="txt-bp">5.0</span>
+                        </div>
+                        <div class="gv-item">
+                            <span class="gv-label">BC</span>
+                            <span class="gv-num" style="color:var(--c-bc)" id="txt-bc">0.0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="drop-display">
+            BP 減壓: <span id="val-drop">0.00</span> <span style="font-size:14px">kg/cm²</span>
+        </div>
+        
+        <button class="bail-btn" id="btn-bail">
+            機車快鬆 (Bail-off)
+            <span class="bail-desc">排 CR ➔ 解除 BC</span>
+        </button>
+
+        <div class="ctrl-group">
+            <div class="ctrl-col">
+                <div class="ctrl-label">26C 自閥</div>
+                <div class="ctrl-state" id="st-auto">運轉位</div>
+                <div class="slider-track">
+                    <div class="notches">
+                        <span>鬆軔</span><span>最小</span><span>常用</span><span>全緊</span><span>鎮壓</span><span>取把</span><span style="color:#e74c3c">緊急</span>
+                    </div>
+                    <input type="range" orient="vertical" id="sli-auto" min="0" max="100" value="100" step="0.5">
+                </div>
+            </div>
+            <div class="ctrl-col">
+                <div class="ctrl-label" style="color:var(--c-20)">SA-26 單閥</div>
+                <div class="ctrl-state" id="st-ind" style="color:var(--c-20)">鬆軔</div>
+                <div class="slider-track">
+                    <div class="notches">
+                        <span>鬆軔</span><span>.</span><span>.</span><span>.</span><span>.</span><span>.</span><span>全緊</span>
+                    </div>
+                    <input type="range" orient="vertical" id="sli-ind" min="0" max="100" value="100" step="1">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 顯示區 (手機在下方) -->
+    <div class="center-panel">
+        <svg viewBox="0 0 900 500" preserveAspectRatio="xMidYMid meet">
+            <defs>
+                <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" fill="#555">
+                    <path d="M0,0 L0,8 L8,4 z" />
+                </marker>
+                <marker id="arrow-blue" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" fill="#00a8ff">
+                    <path d="M0,0 L0,8 L8,4 z" />
+                </marker>
+            </defs>
+
+            <!-- Pipe Network -->
+            <!-- MR (Main) -->
+            <path id="p-mr" d="M 20 450 L 80 450 L 80 100 M 80 100 L 150 100 M 80 380 L 150 380 M 80 450 L 580 450 L 580 380" stroke="var(--c-mr)" />
+            <!-- MR -> Relay -->
+            <path id="p-mr-relay" d="M 80 100 L 80 40 L 330 40 L 330 75" stroke="var(--c-mr)" />
+
+            <path id="p-er" d="M 250 100 L 320 100" stroke="var(--c-er)" />
+            <path id="p-ctrl-relay" d="M 250 105 L 280 105" stroke="var(--c-blue)" marker-end="url(#arrow-blue)" stroke-width="3" opacity="1"/>
+            <text x="265" y="98" font-size="11" fill="var(--c-blue)" font-weight="bold" text-anchor="middle">ER</text>
+
+            <path id="p-bp" d="M 380 100 L 600 100 L 600 150" stroke="var(--c-bp)" />
+            <path id="p-bp-car" d="M 450 100 L 450 40" stroke="var(--c-bp)" stroke-width="5" />
+
+            <path id="p-16" d="M 600 290 L 600 310 L 470 310 L 470 410" stroke="var(--c-16)" />
+            <path id="p-20" d="M 250 380 L 460 380 L 460 410" stroke="var(--c-20)" />
+            <path id="p-dc" d="M 500 450 L 500 470 L 560 470 L 560 380" stroke="#888" />
+            <path id="p-13" d="M 200 380 L 200 420 L 650 420 L 650 290" stroke="var(--c-20)" stroke-dasharray="4" style="opacity:0.1" />
+            
+            <path id="p-cr" d="M 680 260 L 720 260" stroke="var(--c-cr)" />
+            <path id="p-ar" d="M 680 220 L 720 220" stroke="var(--c-ar)" />
+            
+            <path id="p-bc" d="M 600 350 L 680 350" stroke="var(--c-bc)" />
+            <path id="p-bc-mech" d="M 750 350 L 770 350" stroke="var(--c-bc)" stroke-width="2" stroke-dasharray="2" />
+            
+            <path id="p-comp" d="M 20 400 L 20 435" stroke="var(--c-mr)" stroke-width="2" stroke-dasharray="2"/>
+
+            <!-- Components -->
+            
+            <!-- Compressor -->
+            <g transform="translate(10, 380)">
+                 <text x="10" y="-5" font-size="12" fill="#aaa" text-anchor="middle" font-weight="bold">空壓機</text>
+                 <circle cx="10" cy="10" r="10" fill="#333" stroke="#777" stroke-width="2"/>
+                 <circle cx="10" cy="10" r="4" fill="#222" id="comp-status-dot"/>
+            </g>
+
+            <!-- MR -->
+            <rect x="10" y="435" width="60" height="35" rx="6" ry="6" class="box-val" stroke="var(--c-mr)"/>
+            <text x="40" y="450" class="txt-val" fill="var(--c-mr)" id="svg_val_mr">8.5</text>
+            <text x="40" y="464" class="txt-psi" id="svg_psi_mr">121</text>
+            <text x="40" y="425" class="txt-label" font-weight="bold" fill="var(--c-mr)" font-size="16">MR</text>
+
+            <!-- 26C -->
+            <rect x="130" y="60" width="280" height="90" rx="6" ry="6" class="box-dashed" />
+            <text x="270" y="50" class="txt-label" fill="#aaa">26C 自閥</text>
+            <g transform="translate(150, 75)">
+                <rect class="box-comp" width="100" height="60" rx="6" ry="6"/>
+                <text x="50" y="25" class="txt-title">控制部</text>
+                <text x="50" y="45" class="txt-status" fill="var(--c-er)" id="svg_st_control">ER</text>
+            </g>
+            <g transform="translate(280, 75)">
+                <rect class="box-comp" width="100" height="60" rx="6" ry="6"/>
+                <text x="50" y="25" class="txt-title">繼動部</text>
+                <text x="50" y="45" class="txt-status" fill="var(--c-bp)" id="svg_st_relay">BP跟隨ER</text>
+            </g>
+
+            <!-- Single Valve -->
+            <g transform="translate(150, 350)">
+                <rect class="box-comp" width="100" height="60" rx="6" ry="6"/>
+                <text x="50" y="25" class="txt-title">單閥</text>
+                <text x="50" y="45" class="txt-status" fill="var(--c-20)" id="svg_st_ind">鬆軔</text>
+            </g>
+
+            <!-- 26D -->
+            <g transform="translate(580, 150)">
+                <rect class="box-comp" width="100" height="140" rx="6" ry="6"/>
+                <text x="50" y="25" class="txt-title" font-size="16" fill="var(--c-bp)">26D</text>
+                <text x="50" y="45" class="txt-label">控制閥</text>
+                <line x1="10" y1="90" x2="90" y2="90" stroke="#555" />
+                <text x="50" y="75" class="txt-status" id="svg_st_26d">平衡</text>
+                <text x="50" y="110" class="txt-status" fill="#aaa" id="svg_st_ar">AR待命</text>
+                <text x="50" y="125" class="txt-status" fill="#aaa" id="svg_st_cr">CR閉鎖</text>
+            </g>
+
+            <!-- AR/CR -->
+            <g transform="translate(720, 205)">
+                <text x="0" y="25" class="txt-label" text-anchor="start" fill="var(--c-ar)">AR</text>
+                <rect class="box-val" x="30" width="60" height="35" rx="6" ry="6" stroke="var(--c-ar)"/>
+                <text x="60" y="15" class="txt-val" fill="var(--c-ar)" id="svg_val_ar">5.00</text>
+                <text x="60" y="28" class="txt-psi" id="svg_psi_ar">71</text>
+            </g>
+            <g transform="translate(720, 250)">
+                <text x="0" y="25" class="txt-label" text-anchor="start" fill="var(--c-cr)">CR</text>
+                <rect class="box-val" x="30" width="60" height="35" rx="6" ry="6" stroke="var(--c-cr)"/>
+                <text x="60" y="15" class="txt-val" fill="var(--c-cr)" id="svg_val_cr">5.00</text>
+                <text x="60" y="28" class="txt-psi" id="svg_psi_cr">71</text>
+            </g>
+
+            <!-- 16號管 -->
+            <g transform="translate(440, 280)">
+                <text x="30" y="-5" class="txt-label" fill="var(--c-16)">16號管</text>
+                <rect class="box-val" width="60" height="35" rx="6" ry="6" stroke="var(--c-16)"/>
+                <text x="30" y="15" class="txt-val" fill="var(--c-16)" id="svg_val_16">0.00</text>
+                <text x="30" y="28" class="txt-psi" id="svg_psi_16">0</text>
+            </g>
+
+            <!-- BP Value -->
+            <g transform="translate(480, 80)">
+                <text x="40" y="-5" class="txt-label" fill="var(--c-bp)">BP</text>
+                <rect class="box-val" width="60" height="35" rx="6" ry="6" stroke="var(--c-bp)"/>
+                <text x="30" y="15" class="txt-val" fill="var(--c-bp)" id="svg_val_bp">5.00</text>
+                <text x="30" y="28" class="txt-psi" id="svg_psi_bp">71</text>
+            </g>
+
+            <g transform="translate(460, 410)">
+                <rect class="box-comp" width="80" height="40" rx="6" ry="6"/>
+                <text x="40" y="15" class="txt-label">雙重</text>
+                <text x="40" y="30" class="txt-label">止回閥</text>
+            </g>
+
+            <g transform="translate(560, 320)">
+                <rect class="box-comp" width="60" height="60" rx="6" ry="6"/>
+                <text x="30" y="25" class="txt-title">J1</text>
+                <text x="30" y="45" class="txt-label">繼動</text>
+            </g>
+
+            <g transform="translate(680, 320)">
+                <rect class="box-comp" width="70" height="60" rx="6" ry="6" fill="rgba(231, 76, 60, 0.1)" stroke="var(--c-bc)" />
+                <text x="35" y="25" class="txt-title" fill="var(--c-bc)">BC</text>
+                <text x="35" y="45" class="txt-label">軔缸</text>
+            </g>
+            <g transform="translate(685, 390)">
+                <rect class="box-val" width="60" height="35" rx="6" ry="6" stroke="var(--c-bc)"/>
+                <text x="30" y="15" class="txt-val" font-size="16" fill="var(--c-bc)" id="svg_val_bc">0.00</text>
+                <text x="30" y="28" class="txt-psi" id="svg_psi_bc">0</text>
+            </g>
+
+            <g transform="translate(410, 10)">
+                <rect class="box-comp" width="80" height="30" rx="6" ry="6" stroke="var(--c-bp)" stroke-width="3"/>
+                <text x="40" y="20" class="txt-label" fill="var(--c-bp)" font-weight="bold">客車BP</text>
+            </g>
+            
+            <!-- Legend -->
+            <g transform="translate(650, 480)">
+                <rect width="10" height="10" fill="#fff" x="0" y="0" />
+                <text x="15" y="9" class="unit-legend" fill="#fff">數值: kg/cm²</text>
+                <rect width="10" height="10" fill="var(--c-psi)" x="100" y="0" />
+                <text x="115" y="9" class="unit-legend" fill="var(--c-psi)">數值: psi</text>
+            </g>
+            
+            <!-- Integrated Wheel (Right Side) -->
+            <g transform="translate(770, 350)">
+                <!-- Wheel Group with Explicit Origin -->
+                <g class="wheel-group" id="anim-wheel">
+                    <circle cx="50" cy="0" r="40" stroke="#888" stroke-width="6" fill="none" />
+                    <circle cx="50" cy="0" r="5" fill="#555" />
+                    <line x1="50" y1="-40" x2="50" y2="40" stroke="#444" stroke-width="4" />
+                    <line x1="10" y1="0" x2="90" y2="0" stroke="#444" stroke-width="4" />
+                </g>
+                <path id="anim-shoe" class="shoe" d="M 0 0 Q 10 0 12 -30 L 5 -30 L -5 -30 L -5 30 L 5 30 L 12 30 Q 10 0 0 0 Z" transform="translate(-10, 0)"/>
+            </g>
+
+        </svg>
+    </div>
+</div>
+
+<script>
+    const PHYSICS = {
+        BP_STD: 5.0,
+        BC_MAX_AUTO: 4.2,
+        BC_MAX_IND: 3.2,
+        RATE_BP_CHARGE: 0.08, 
+        RATE_BP_VENT: 0.08,
+        RATE_BP_SLOW: 0.02,   
+        RATE_BP_EMG: 1.0,     
+        RATE_CR_CHARGE: 0.04,
+        RATE_AR_CHARGE: 0.06,
+        RATE_BC: 0.25,
+        RATE_16: 0.25,
+        MR_REFILL_RATE: 0.04, 
+        MR_USE_BP: 0.03,
+        MR_USE_BC: 0.01,
+        AR_USE_1: 1.0
+    };
+
+    let sys = {
+        mr: 8.5, er: 5.0, bp: 5.0, cr: 5.0, ar: 5.0,
+        p16: 0.0, ind: 0.0, bc: 0.0,
+        isBail: false, autoMode: "運轉位", cumDrop: 0.0, 
+        isEmg: false, isOff: false,
+        compOn: false
+    };
+
+    const el = {
+        auto: document.getElementById('sli-auto'),
+        ind: document.getElementById('sli-ind'),
+        bail: document.getElementById('btn-bail'),
+        
+        txtER: document.getElementById('txt-er'),
+        txtMR: document.getElementById('txt-mr'),
+        txtBP: document.getElementById('txt-bp'),
+        txtBC: document.getElementById('txt-bc'),
+        drop: document.getElementById('val-drop'),
+        
+        svgMR: document.getElementById('svg_val_mr'),
+        svgAR: document.getElementById('svg_val_ar'),
+        svgCR: document.getElementById('svg_val_cr'),
+        svg16: document.getElementById('svg_val_16'),
+        svgBC: document.getElementById('svg_val_bc'),
+        svgBP: document.getElementById('svg_val_bp'),
+        
+        psiMR: document.getElementById('svg_psi_mr'),
+        psiAR: document.getElementById('svg_psi_ar'),
+        psiCR: document.getElementById('svg_psi_cr'),
+        psi16: document.getElementById('svg_psi_16'),
+        psiBC: document.getElementById('svg_psi_bc'),
+        psiBP: document.getElementById('svg_psi_bp'),
+        
+        st26d: document.getElementById('svg_st_26d'),
+        stAction: document.getElementById('svg_st_ar'),
+        stCR: document.getElementById('svg_st_cr'),
+        stControl: document.getElementById('svg_st_control'),
+        stRelay: document.getElementById('svg_st_relay'),
+        stInd: document.getElementById('svg_st_ind'),
+        compDot: document.getElementById('comp-status-dot'),
+        
+        pBP: document.getElementById('p-bp'),
+        pBPcar: document.getElementById('p-bp-car'),
+        pAR: document.getElementById('p-ar'),
+        pCR: document.getElementById('p-cr'),
+        p16: document.getElementById('p-16'),
+        pBC: document.getElementById('p-bc'),
+        p13: document.getElementById('p-13'),
+        p20: document.getElementById('p-20'),
+        pDC: document.getElementById('p-dc'),
+        pMR: document.getElementById('p-mr'),
+        pMRRelay: document.getElementById('p-mr-relay'),
+        pBCMech: document.getElementById('p-bc-mech'),
+        
+        shoe: document.getElementById('anim-shoe'),
+        wheelGroup: document.getElementById('anim-wheel')
+    };
+    
+    if(el.wheelGroup) el.wheelGroup.classList.add('spin');
+
+    setInterval(() => {
+        try {
+            processInput();
+            calcPhysics();
+            updateView();
+        } catch(e) { console.log(e); }
+    }, 50);
+
+    function processInput() {
+        el.bail.onmousedown = el.bail.ontouchstart = () => sys.isBail = true;
+        el.bail.onmouseup = el.bail.ontouchend = el.bail.onmouseleave = () => sys.isBail = false;
+
+        const v = parseFloat(el.auto.value);
+        let target = 0;
+        sys.isEmg = false;
+        sys.isOff = false;
+
+        if (v >= 95) { sys.autoMode="鬆軔"; target=0; }
+        else if (v>=85) { sys.autoMode="最小"; target=0.4; }
+        else if (v>=60) { sys.autoMode="常用"; target=0.4+(1.0)*((85-v)/25); }
+        else if (v>=45) { sys.autoMode="全緊"; target=1.4; }
+        else if (v>=30) { sys.autoMode="鎮壓"; target=1.4; }
+        else if (v>=15) { sys.autoMode="取把"; sys.isOff=true; target=0; } 
+        else { sys.autoMode="緊急"; sys.isEmg=true; target=5.0; }
+
+        document.getElementById('st-auto').textContent = sys.autoMode;
+
+        if (sys.autoMode === "鬆軔") sys.cumDrop = 0;
+        else if (!sys.isEmg && !sys.isOff && target > sys.cumDrop) sys.cumDrop = target;
+        if (sys.isEmg) sys.cumDrop = 5.0;
+
+        const iv = parseFloat(el.ind.value);
+        sys.ind = ((100-iv)/100) * 3.2;
+        el.stInd.textContent = sys.ind > 0.1 ? "緊軔" : "鬆軔";
+    }
+
+    function calcPhysics() {
+        // MR
+        if (sys.mr <= 7.5) sys.compOn = true;
+        if (sys.mr >= 8.5) sys.compOn = false;
+        if (sys.compOn) sys.mr += PHYSICS.MR_REFILL_RATE;
+        
+        let mr_consume = 0;
+        if (sys.bp < 4.8 && !sys.isOff && !sys.isEmg) mr_consume += PHYSICS.MR_USE_BP;
+        if (sys.bc > 0.2 && sys.bc < sys.p16) mr_consume += PHYSICS.MR_USE_BC;
+        sys.mr -= mr_consume;
+        if (sys.mr < 0) sys.mr = 0;
+
+        // BP
+        let targetBP = Math.max(0, PHYSICS.BP_STD - sys.cumDrop);
+        
+        if (sys.isEmg) {
+            sys.bp -= PHYSICS.RATE_BP_EMG; 
+            sys.er -= PHYSICS.RATE_BP_EMG; 
+            el.stRelay.textContent = "緊急排風"; el.stRelay.style.fill = "red";
+            el.stControl.textContent = "ER急排"; el.stControl.style.fill = "red";
+        } else if (sys.isOff) {
+            sys.er -= PHYSICS.RATE_BP_SLOW;
+            sys.bp -= PHYSICS.RATE_BP_SLOW;
+            el.stRelay.textContent = "BP慢洩"; el.stRelay.style.fill = "#e67e22";
+            el.stControl.textContent = "ER慢洩"; el.stControl.style.fill = "#e67e22";
+        } else {
+            let diff = targetBP - sys.er;
+            if (Math.abs(diff) > 0.01) {
+                sys.er += diff * 0.5;
+                el.stControl.textContent = diff > 0 ? "ER充氣" : "ER減壓";
+            }
+            let bpDiff = sys.er - sys.bp;
+            if (Math.abs(bpDiff) > 0.01) {
+                sys.bp += bpDiff * PHYSICS.RATE_BP_CHARGE;
+                el.stRelay.textContent = bpDiff > 0 ? "BP跟隨ER" : "BP跟隨ER";
+                el.stRelay.style.fill = "#2ecc71";
+            } else {
+                sys.bp = sys.er;
+                el.stRelay.textContent = "BP跟隨ER"; el.stRelay.style.fill = "#aaa";
+            }
+        }
+        if (sys.bp < 0) sys.bp = 0;
+        if (sys.er < 0) sys.er = 0;
+
+        // CR
+        if (sys.isBail) {
+            sys.cr -= 0.15; 
+            if (sys.cr < 0) sys.cr = 0;
+            el.stCR.textContent = "快鬆排氣"; el.stCR.style.fill = "#ff79c6";
+            setPipeFlow(el.p13, true, "var(--c-20)");
+        } else {
+            setPipeFlow(el.p13, false);
+            if (sys.autoMode === "鬆軔" && sys.bp > sys.cr + 0.01) {
+                sys.cr += PHYSICS.RATE_CR_CHARGE;
+                el.stCR.textContent = "CR充氣"; el.stCR.style.fill = "#2ecc71";
+            } else {
+                el.stCR.textContent = "CR閉鎖"; el.stCR.style.fill = "#3498db";
+            }
+        }
+        if (sys.cr > 5.0) sys.cr = 5.0;
+
+        // AR Logic
+        if (sys.p16 < 0.1 && sys.bp > sys.ar + 0.05 && sys.autoMode === "鬆軔") {
+            sys.ar += PHYSICS.RATE_AR_CHARGE;
+            el.stAction.textContent = "AR充氣";
+        } else {
+            el.stAction.textContent = "AR消耗/待命";
+        }
+
+        let diff = sys.cr - sys.bp; 
+        if (diff < 0) diff = 0;
+
+        let target16 = 0;
+        if (sys.isEmg || sys.isOff) {
+            if (diff > 0.02) target16 = 4.2;
+            else target16 = 0;
+        } else {
+            if (diff > 0.2) target16 = 3 * diff - 0.74;
+        }
+        target16 = Math.min(target16, PHYSICS.BC_MAX_AUTO);
+        if (target16 < 0) target16 = 0;
+
+        if (sys.p16 < target16 - 0.02) {
+            if (sys.ar > 0.05) {
+                let flow = Math.min(PHYSICS.RATE_16, target16 - sys.p16);
+                sys.p16 += flow;
+                sys.ar -= flow * PHYSICS.AR_USE_1; 
+                el.st26d.textContent = "緊軔"; el.st26d.style.fill = "#e74c3c";
+                setPipeFlow(el.p16, true, "var(--c-16)");
+                setPipeFlow(el.pAR, true, "var(--c-ar)");
+            }
+        } else if (sys.p16 > target16 + 0.02) {
+            sys.p16 -= PHYSICS.RATE_16;
+            el.st26d.textContent = "鬆軔"; el.st26d.style.fill = "#2ecc71";
+            setPipeFlow(el.p16, false);
+            setPipeFlow(el.pAR, false);
+        } else {
+            // 在完全鬆軔（運轉位、BP≈5、BC≈0）時，顯示「鬆軔」而不是「保壓」
+            if (!sys.isEmg && !sys.isOff && target16 < 0.05 && sys.autoMode === "鬆軔" && sys.bc < 0.1) {
+                el.st26d.textContent = "鬆軔"; 
+                el.st26d.style.fill = "#2ecc71";
+                setPipeFlow(el.p16, false);
+            } else {
+                el.st26d.textContent = "保壓"; 
+                el.st26d.style.fill = "#aaa";
+                setPipeFlow(el.p16, sys.p16 > 0.1, "var(--c-16)");
+            }
+            setPipeFlow(el.pAR, false);
+        }
+        if(sys.ar < 0) sys.ar = 0;
+
+        let req = Math.max(sys.p16, sys.ind);
+        req = Math.min(req, sys.mr);
+        let dBC = req - sys.bc;
+        if (Math.abs(dBC) > 0.02) {
+            sys.bc += dBC * PHYSICS.RATE_BC;
+        } else {
+            sys.bc = req;
+        }
+    }
+
+    function toPsi(val) {
+        return (val * 14.22).toFixed(0);
+    }
+
+    function updateView() {
+        setNeedle('n-mr', sys.mr);
+        setNeedle('n-er', sys.er);
+        setNeedle('n-bp', sys.bp);
+        setNeedle('n-bc', sys.bc);
+
+        el.txtMR.textContent = sys.mr.toFixed(1);
+        el.txtER.textContent = sys.er.toFixed(2);
+        el.txtBP.textContent = sys.bp.toFixed(2);
+        el.txtBC.textContent = sys.bc.toFixed(2);
+        
+        el.svgMR.textContent = sys.mr.toFixed(1);
+        el.svgAR.textContent = sys.ar.toFixed(2);
+        el.svgCR.textContent = sys.cr.toFixed(2);
+        el.svg16.textContent = sys.p16.toFixed(2);
+        el.svgBC.textContent = sys.bc.toFixed(2);
+        el.svgBP.textContent = sys.bp.toFixed(2);
+
+        el.psiMR.textContent = toPsi(sys.mr);
+        el.psiAR.textContent = toPsi(sys.ar);
+        el.psiCR.textContent = toPsi(sys.cr);
+        el.psi16.textContent = toPsi(sys.p16);
+        el.psiBC.textContent = toPsi(sys.bc);
+        el.psiBP.textContent = toPsi(sys.bp);
+
+        el.drop.textContent = (5.0 - sys.bp).toFixed(2);
+
+        if(sys.compOn) el.compDot.setAttribute('fill', '#2ecc71');
+        else el.compDot.setAttribute('fill', '#222');
+
+        setPipeFlow(el.pMR, true, 'var(--c-mr)');
+        setPipeFlow(el.pMRRelay, true, 'var(--c-mr)');
+        setPipeFlow(el.pBP, sys.bp > 0.5, 'var(--c-bp)');
+        setPipeFlow(el.pBPcar, sys.bp > 0.5, 'var(--c-bp)');
+        setPipeFlow(el.pCR, sys.cr > 0.5, 'var(--c-cr)');
+        setPipeFlow(el.pBC, sys.bc > 0.1, 'var(--c-bc)');
+        setPipeFlow(el.pBCMech, sys.bc > 0.1, 'var(--c-bc)');
+        setPipeFlow(el.p20, sys.ind > 0.1, 'var(--c-20)');
+        
+        let dcColor = sys.ind > sys.p16 ? 'var(--c-20)' : 'var(--c-16)';
+        setPipeFlow(el.pDC, (sys.ind > 0.1 || sys.p16 > 0.1), dcColor);
+
+        const move = sys.bc > 0.3 ? 8 : 0; 
+        if(el.shoe) el.shoe.setAttribute('transform', `translate(${move}, 0)`);
+        
+        if (sys.bc > 0.5) {
+            if(el.shoe) el.shoe.classList.add('active');
+            if(el.wheelGroup) el.wheelGroup.style.animationPlayState = 'paused';
+        } else {
+            if(el.shoe) el.shoe.classList.remove('active');
+            if(el.wheelGroup) el.wheelGroup.style.animationPlayState = 'running';
+        }
+    }
+
+    function setNeedle(id, val) {
+        let deg = -135 + (val / 10) * 270;
+        let e = document.getElementById(id);
+        if(e) e.style.transform = `rotate(${deg}deg)`;
+    }
+
+    function setPipeFlow(el, active, color) {
+        if(!el) return;
+        if(color) el.style.stroke = color;
+        if(active) {
+            el.classList.add('flow');
+            el.style.opacity = 1;
+        } else {
+            el.classList.remove('flow');
+            el.style.opacity = 0.3;
+        }
+    }
+</script>
+</body>
+</html>
